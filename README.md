@@ -1,7 +1,6 @@
 # D-File
 
 基于 GitHub API 的文件管理系统前端页面。
-![](https://cdn.jsdelivr.net/gh/bbylw/file@master/20241230195124242.png)
 
 > 本项目基于 [@dhjz/file](https://github.com/dhjz/file) 进行二次开发，主要对UI和配色方案进行了重新设计，保持原有功能逻辑不变。感谢原作者的开源贡献！
 
@@ -76,3 +75,31 @@
 - 主页文件(index.html)受保护，不可删除
 - 需要确保有足够的仓库权限
 - 大文件上传时请耐心等待
+
+## 部署方式
+
+### 方式一：GitHub Pages
+
+- 把 `index.html` 复制到自己的仓库
+- 开启 GitHub Pages 功能后访问对应页面即可
+
+### 方式二：Cloudflare Pages
+
+1. 登录 [Cloudflare Dashboard](https://dash.cloudflare.com/)
+2. 进入 Pages 页面，点击"创建项目"
+3. 选择"连接到 Git"，授权并选择您的仓库
+4. 配置构建设置：
+   - 构建命令：留空
+   - 构建输出目录：`/`
+   - 部署分支：`main`
+5. 点击"保存并部署"
+
+#### Cloudflare Pages 的优势
+
+- 全球 CDN 加速，访问速度快
+- 自动 HTTPS，安全可靠
+- 完全免费，无需付费
+- 无限制的站点数量和带宽
+- 自动构建部署，更新方便
+- 可以绑定自定义域名
+- 国内访问速度优秀
