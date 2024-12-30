@@ -29,18 +29,15 @@
      - jsdelivr 加速
      - jsdelivr1 加速
 
-## 主要功能
+## 使用说明
 
-- 浏览和管理 GitHub 仓库中的文件和目录
-- 文件上传和删除
-- 新建目录
-- 文件搜索
-- 支持多种 CDN 加速访问
-- 支持文件类型识别和图标显示
-- 响应式设计，支持移动端
-- 支持文件预览和下载
+- 可以直接访问本地址, 设置好仓库和token后, 进行文件的上传下载和地址查看
+- 也可以把`index.html`复制到自己的仓库, 开启github pages后访问自己的页面即可
+- 全部功能实现都在`index.html`里面
+- github token新建地址: [https://github.com/settings/tokens?type=beta](https://github.com/settings/tokens?type=beta)
+- 建议开启仓库的pages功能, 可以直接访问文件
 
-## 使用方法
+### 快速开始
 
 1. 配置 GitHub Token
    - 需要有 repo 权限的 Personal Access Token
@@ -53,6 +50,18 @@
 3. 测试加速源
    - 在根目录上传 `init.jpg`(50kb以内)
    - 系统会自动测试各个加速源的延迟
+
+## 功能特性
+
+- 支持文件上传下载删除
+- 支持目录新增
+- 支持自定义仓库repo和token
+- 支持常见的github镜像加速地址一键查看及延时查看(需要在仓库根目录上传init.jpg)
+- 支持分列查看和文件名搜索过滤
+- 支持常见文件类型的类型查看和高亮显示
+- 支持文件类型识别和图标显示
+- 响应式设计，支持移动端
+- 支持文件预览和下载
 
 ## 技术实现
 
