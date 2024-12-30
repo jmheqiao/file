@@ -2,6 +2,8 @@
 
 基于 GitHub API 的文件管理系统前端页面。
 
+![](https://cdn.jsdelivr.net/gh/bbylw/file@master/20241230195124242.png)
+
 > 本项目基于 [@dhjz/file](https://github.com/dhjz/file) 进行二次开发，主要对UI和配色方案进行了重新设计，保持原有功能逻辑不变。感谢原作者的开源贡献！
 
 ## 最新更新 (v20250101-1)
