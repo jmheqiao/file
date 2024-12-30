@@ -65,6 +65,29 @@
         display: flex;
         align-items: center;
         padding: 6px 0;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      .file_list li:hover {
+        background: rgba(255, 144, 0, 0.05);
+      }
+      .file_list li .checkbox {
+        width: 18px;
+        height: 18px;
+        border: 2px solid #ff9000;
+        margin-right: 10px;
+        border-radius: 3px;
+        position: relative;
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+      .file_list li.selected .checkbox:after {
+        content: "✓";
+        position: absolute;
+        color: #ff9000;
+        font-size: 14px;
+        left: 2px;
+        top: -2px;
       }
       .w50 .file_list li {
         float: left;
@@ -513,18 +536,19 @@
         if (window.fileList.length)
           document.getElementById("file_list").innerHTML = tempList
             .map((item) => {
-              return `<li class="file ${
-                item.ftype
-              }" onclick="toggleFileSelection(this)" data-id="${item.sha}">
-            <a target="_blank" href="${rootdm}${item.path}" onclick="getDir('${
+              return `<li class="file ${item.ftype}" data-id="${item.sha}">
+                <div class="checkbox" onclick="toggleFileSelection(this.parentElement, event)"></div>
+                <a target="_blank" href="${rootdm}${
+                item.path
+              }" onclick="handleFileClick(event, '${
                 item.type == "dir" ? item.path : ""
-              }', false, event)">${item.name}</a><span class='sha'>${
-                item.sha
-              }</span><span class="size">${getUnit(item.size)}</span>
-            <i onclick="delOne('${item.path}', '${
+              }')">${item.name}</a>
+                <span class='sha'>${item.sha}</span>
+                <span class="size">${getUnit(item.size)}</span>
+                <i onclick="delOne('${item.path}', '${
                 item.sha
               }')" class="del">删除</i>
-          </li>`;
+              </li>`;
             })
             .join("");
 
@@ -817,68 +841,104 @@
         });
       }
 
-      // 批量删除功能
-      function batchDelete() {
+      // 统一的批量操作处理函数
+      function handleBatchOperation(operation) {
         const selectedItems = document.querySelectorAll(
           ".file_list li.selected"
         );
         if (!selectedItems.length) {
-          alert("请先选择要删除的文件");
+          alert("请先选择要操作的文件");
           return;
         }
 
-        if (confirm(`确定要删除选中的 ${selectedItems.length} 个文件吗？`)) {
-          selectedItems.forEach((item) => {
-            const path = item
-              .querySelector("a")
-              .getAttribute("href")
-              .split("/")
-              .pop();
-            const sha = item.querySelector(".sha").textContent;
-            delFile(path, sha, false);
-          });
-          selectedFiles.clear();
+        let targetPath = "";
+        if (operation === "move" || operation === "copy") {
+          targetPath = prompt("请输入目标路径（相对于根目录）：");
+          if (!targetPath) return;
         }
-      }
 
-      // 批量移动功能
-      function batchMove() {
-        const selectedItems = document.querySelectorAll(
-          ".file_list li.selected"
+        if (
+          operation === "delete" &&
+          !confirm(`确定要删除选中的 ${selectedItems.length} 个文件吗？`)
+        ) {
+          return;
+        }
+
+        showLoading(
+          `正在${
+            operation === "delete"
+              ? "删除"
+              : operation === "move"
+              ? "移动"
+              : "复制"
+          }文件...`
         );
-        if (!selectedItems.length) {
-          alert("请先选择要移动的文件");
-          return;
-        }
-
-        const targetPath = prompt("请输入目标路径（相对于根目录）：");
-        if (!targetPath) return;
+        let completedCount = 0;
 
         selectedItems.forEach((item) => {
           const fileName = item.querySelector("a").textContent;
           const currentPath = paths.length
             ? paths[paths.length - 1] + "/" + fileName
             : fileName;
-          const newPath = targetPath + "/" + fileName;
 
-          // 获取文件内容并在新位置创建
-          getContent(currentPath, true).then((response) => {
-            const data = {
-              message: now() + " move " + currentPath + " to " + newPath,
-              content: response.data.content,
-              sha: response.data.sha,
-            };
+          if (operation === "delete") {
+            const sha = item.querySelector(".sha").textContent;
+            delFile(currentPath, sha, false);
+            completedCount++;
+            if (completedCount === selectedItems.length) {
+              hideLoading();
+              alert("批量删除完成");
+              refresh();
+            }
+          } else {
+            const newPath = targetPath + "/" + fileName;
 
-            // 创建新文件
-            request
-              .put(`/repos/${baseRepo}/contents/${newPath}`, data)
-              .then(() => {
-                // 删除原文件
-                delFile(currentPath, response.data.sha, false);
-              });
-          });
+            getContent(currentPath, true).then((response) => {
+              const data = {
+                message:
+                  now() + ` ${operation} ` + currentPath + " to " + newPath,
+                content: response.data.content,
+                sha: response.data.sha,
+              };
+
+              request
+                .put(`/repos/${baseRepo}/contents/${newPath}`, data)
+                .then(() => {
+                  if (operation === "move") {
+                    delFile(currentPath, response.data.sha, false);
+                  }
+                  completedCount++;
+                  if (completedCount === selectedItems.length) {
+                    hideLoading();
+                    alert(`批量${operation === "move" ? "移动" : "复制"}完成`);
+                    refresh();
+                  }
+                });
+            });
+          }
         });
+
+        // 清除选择状态
         selectedFiles.clear();
+        document.querySelectorAll(".file_list li.selected").forEach((item) => {
+          item.classList.remove("selected");
+        });
+        updateSelectedCount();
+      }
+
+      // 批量删除
+      function batchDelete() {
+        handleBatchOperation("delete");
+      }
+
+      // 批量移动
+      function batchMove() {
+        handleBatchOperation("move");
+      }
+
+      // 批量复制
+      function batchCopy() {
+        handleBatchOperation("copy");
       }
 
       // 文件分享功能
@@ -922,22 +982,12 @@
           <textarea style="width: 100%; min-width: 300px; height: 150px; margin-bottom: 10px; background: #000; color: #fff; padding: 10px;">${shareLinks.join(
             "\n"
           )}</textarea>
-          <button onclick="this.parentElement.remove()" style="float: right">关闭</button>
+          <button onclick="this.parentElement.remove()" class="back" style="float: right">关闭</button>
+          <button onclick="navigator.clipboard.writeText(this.previousElementSibling.previousElementSibling.value)" class="back" style="float: right; margin-right: 10px">复制链接</button>
         `;
 
         document.body.appendChild(shareModal);
       }
-
-      // 添加批量操作按钮
-      const batchButtons = `
-        <span onclick="batchDelete()" class="back" style="margin-right: 10px">批量删除</span>
-        <span onclick="batchMove()" class="back" style="margin-right: 10px">批量移动</span>
-        <span onclick="shareFiles()" class="back">分享文件</span>
-      `;
-
-      document
-        .querySelector("h2")
-        .insertAdjacentHTML("beforeend", batchButtons);
 
       // 右键菜单处理
       document.querySelector(".context-menu").addEventListener("click", (e) => {
@@ -1130,9 +1180,53 @@
       // Batch operations
       let selectedFiles = new Set();
 
-      function toggleFileSelection(element) {
+      function handleFileClick(event, dirPath) {
+        event.preventDefault();
+        const target = event.target;
+        const listItem = target.closest("li");
+
+        if (dirPath) {
+          // 如果是目录，进入目录
+          getDir(dirPath, false, null);
+        } else if (
+          !event.target.classList.contains("del") &&
+          !event.target.classList.contains("checkbox")
+        ) {
+          // 如果不是点击删除按钮或复选框，则选择/取消选择文件
+          toggleFileSelection(listItem, event);
+        }
+      }
+
+      function toggleFileSelection(element, event) {
         if (element.classList.contains("dir")) return; // 不允许选择目录
-        element.classList.toggle("selected");
+
+        if (event.shiftKey && lastChecked) {
+          // Shift + 点击实现范围选择
+          const items = Array.from(document.querySelectorAll(".file_list li"));
+          const start = items.indexOf(element);
+          const end = items.indexOf(lastChecked);
+
+          items
+            .slice(Math.min(start, end), Math.max(start, end) + 1)
+            .forEach((item) => {
+              if (!item.classList.contains("dir")) {
+                item.classList.add("selected");
+              }
+            });
+        } else if (event.ctrlKey || event.metaKey) {
+          // Ctrl/Command + 点击实现多选
+          element.classList.toggle("selected");
+        } else {
+          // 普通点击，清除其他选择，只选择当前文件
+          document
+            .querySelectorAll(".file_list li.selected")
+            .forEach((item) => {
+              if (item !== element) item.classList.remove("selected");
+            });
+          element.classList.toggle("selected");
+        }
+
+        lastChecked = element;
         updateSelectedCount();
       }
 
@@ -1203,6 +1297,34 @@
           });
         });
       }
+
+      // 添加全选/取消全选功能
+      function addSelectAllButton() {
+        const selectAllBtn = document.createElement("span");
+        selectAllBtn.className = "back";
+        selectAllBtn.style.marginRight = "10px";
+        selectAllBtn.onclick = toggleSelectAll;
+        selectAllBtn.textContent = "全选";
+
+        const batchOperations = document.getElementById("batch-operations");
+        batchOperations.insertBefore(selectAllBtn, batchOperations.firstChild);
+      }
+
+      function toggleSelectAll() {
+        const allFiles = document.querySelectorAll(".file_list li:not(.dir)");
+        const allSelected = Array.from(allFiles).every((file) =>
+          file.classList.contains("selected")
+        );
+
+        allFiles.forEach((file) => {
+          file.classList.toggle("selected", !allSelected);
+        });
+
+        updateSelectedCount();
+      }
+
+      // 在页面加载完成后添加全选按钮
+      addSelectAllButton();
     </script>
 
     <style>
