@@ -377,6 +377,19 @@
       <span onclick="document.getElementById('file').click()" class="back"
         >上传文件</span
       >
+      <div
+        id="batch-operations"
+        style="display: inline-block; margin-left: 10px"
+      >
+        <span onclick="batchDelete()" class="back">批量删除</span>
+        <span onclick="batchMove()" class="back">批量移动</span>
+        <span onclick="batchCopy()" class="back">批量复制</span>
+        <span onclick="shareFiles()" class="back">批量分享</span>
+        <span
+          id="selected-count"
+          style="margin-left: 10px; color: #ff9000"
+        ></span>
+      </div>
       <span onclick="dirBack()" class="back">←返回</span>
       <span onclick="refresh()" class="back ftr">刷新</span>
       <span onclick="toggleWrap()" class="back ftr">分列</span>
@@ -500,7 +513,9 @@
         if (window.fileList.length)
           document.getElementById("file_list").innerHTML = tempList
             .map((item) => {
-              return `<li class="file ${item.ftype}">
+              return `<li class="file ${
+                item.ftype
+              }" onclick="toggleFileSelection(this)" data-id="${item.sha}">
             <a target="_blank" href="${rootdm}${item.path}" onclick="getDir('${
                 item.type == "dir" ? item.path : ""
               }', false, event)">${item.name}</a><span class='sha'>${
@@ -1029,9 +1044,29 @@
               pre.style.whiteSpace = "pre-wrap";
               content.appendChild(pre);
             });
+        } else if (fileType === "video") {
+          const video = document.createElement("video");
+          video.src = url;
+          video.controls = true;
+          video.style.maxWidth = "100%";
+          content.appendChild(video);
+        } else if (fileType === "music") {
+          const audio = document.createElement("audio");
+          audio.src = url;
+          audio.controls = true;
+          audio.style.width = "100%";
+          content.appendChild(audio);
         } else {
-          content.innerHTML =
-            '<div style="color: #fff; padding: 20px;">此文件类型暂不支持预览，请下载后查看</div>';
+          const downloadLink = document.createElement("a");
+          downloadLink.href = url;
+          downloadLink.download = url.split("/").pop();
+          downloadLink.innerHTML = `
+            <div style="color: #fff; padding: 20px; text-align: center;">
+              <div style="margin-bottom: 20px;">此文件类型暂不支持预览</div>
+              <button class="back">点击下载</button>
+            </div>
+          `;
+          content.appendChild(downloadLink);
         }
       }
 
@@ -1096,12 +1131,19 @@
       let selectedFiles = new Set();
 
       function toggleFileSelection(element) {
+        if (element.classList.contains("dir")) return; // 不允许选择目录
         element.classList.toggle("selected");
-        if (element.classList.contains("selected")) {
-          selectedFiles.add(element.dataset.id);
-        } else {
-          selectedFiles.delete(element.dataset.id);
-        }
+        updateSelectedCount();
+      }
+
+      function updateSelectedCount() {
+        const selectedCount = document.querySelectorAll(
+          ".file_list li.selected"
+        ).length;
+        const countElement = document.getElementById("selected-count");
+        countElement.textContent = selectedCount
+          ? `已选择 ${selectedCount} 个文件`
+          : "";
       }
 
       // Add shift-click functionality for batch selection
@@ -1118,6 +1160,49 @@
         }
         lastChecked = fileItem;
       });
+
+      function batchCopy() {
+        const selectedItems = document.querySelectorAll(
+          ".file_list li.selected"
+        );
+        if (!selectedItems.length) {
+          alert("请先选择要复制的文件");
+          return;
+        }
+
+        const targetPath = prompt("请输入目标路径（相对于根目录）：");
+        if (!targetPath) return;
+
+        showLoading("正在复制文件...");
+        let completedCount = 0;
+
+        selectedItems.forEach((item) => {
+          const fileName = item.querySelector("a").textContent;
+          const currentPath = paths.length
+            ? paths[paths.length - 1] + "/" + fileName
+            : fileName;
+          const newPath = targetPath + "/" + fileName;
+
+          getContent(currentPath, true).then((response) => {
+            const data = {
+              message: now() + " copy " + currentPath + " to " + newPath,
+              content: response.data.content,
+              sha: response.data.sha,
+            };
+
+            request
+              .put(`/repos/${baseRepo}/contents/${newPath}`, data)
+              .then(() => {
+                completedCount++;
+                if (completedCount === selectedItems.length) {
+                  hideLoading();
+                  alert("批量复制完成");
+                  refresh();
+                }
+              });
+          });
+        });
+      }
     </script>
 
     <style>
