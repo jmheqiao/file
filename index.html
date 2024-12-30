@@ -400,19 +400,6 @@
       <span onclick="document.getElementById('file').click()" class="back"
         >上传文件</span
       >
-      <div
-        id="batch-operations"
-        style="display: inline-block; margin-left: 10px"
-      >
-        <span onclick="batchDelete()" class="back">批量删除</span>
-        <span onclick="batchMove()" class="back">批量移动</span>
-        <span onclick="batchCopy()" class="back">批量复制</span>
-        <span onclick="shareFiles()" class="back">批量分享</span>
-        <span
-          id="selected-count"
-          style="margin-left: 10px; color: #ff9000"
-        ></span>
-      </div>
       <span onclick="dirBack()" class="back">←返回</span>
       <span onclick="refresh()" class="back ftr">刷新</span>
       <span onclick="toggleWrap()" class="back ftr">分列</span>
@@ -425,7 +412,6 @@
         placeholder="关键词搜索, 回车确认"
         onkeyup="search(event)"
       />
-      <!-- <span onclick="history.go(-1)" class="back">返回</span> -->
     </h2>
     <div id="file_wrap">
       <ul class="file_list" id="file_list">
@@ -537,18 +523,17 @@
           document.getElementById("file_list").innerHTML = tempList
             .map((item) => {
               return `<li class="file ${item.ftype}" data-id="${item.sha}">
-                <div class="checkbox" onclick="toggleFileSelection(this.parentElement, event)"></div>
-                <a target="_blank" href="${rootdm}${
+              <a target="_blank" href="${rootdm}${
                 item.path
               }" onclick="handleFileClick(event, '${
                 item.type == "dir" ? item.path : ""
               }')">${item.name}</a>
-                <span class='sha'>${item.sha}</span>
-                <span class="size">${getUnit(item.size)}</span>
-                <i onclick="delOne('${item.path}', '${
+              <span class='sha'>${item.sha}</span>
+              <span class="size">${getUnit(item.size)}</span>
+              <i onclick="delOne('${item.path}', '${
                 item.sha
               }')" class="del">删除</i>
-              </li>`;
+            </li>`;
             })
             .join("");
 
@@ -864,66 +849,143 @@
           return;
         }
 
-        showLoading(
-          `正在${
-            operation === "delete"
-              ? "删除"
-              : operation === "move"
-              ? "移动"
-              : "复制"
-          }文件...`
-        );
+        // 创建进度显示元素
+        const progressModal = document.createElement("div");
+        progressModal.style.cssText = `
+          position: fixed;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          background: #1b1b1b;
+          padding: 20px;
+          border-radius: 5px;
+          z-index: 1001;
+          min-width: 300px;
+        `;
+
+        const progressContent = document.createElement("div");
+        progressContent.innerHTML = `
+          <h3 style="margin-bottom: 10px">处理进度</h3>
+          <div id="progress-text">0/${selectedItems.length}</div>
+          <div id="progress-details" style="margin-top: 10px; max-height: 150px; overflow-y: auto;"></div>
+        `;
+        progressModal.appendChild(progressContent);
+        document.body.appendChild(progressModal);
+
         let completedCount = 0;
+        let errorCount = 0;
+        const errors = [];
 
-        selectedItems.forEach((item) => {
-          const fileName = item.querySelector("a").textContent;
-          const currentPath = paths.length
-            ? paths[paths.length - 1] + "/" + fileName
-            : fileName;
-
-          if (operation === "delete") {
-            const sha = item.querySelector(".sha").textContent;
-            delFile(currentPath, sha, false);
-            completedCount++;
-            if (completedCount === selectedItems.length) {
-              hideLoading();
-              alert("批量删除完成");
-              refresh();
-            }
-          } else {
-            const newPath = targetPath + "/" + fileName;
-
-            getContent(currentPath, true).then((response) => {
-              const data = {
-                message:
-                  now() + ` ${operation} ` + currentPath + " to " + newPath,
-                content: response.data.content,
-                sha: response.data.sha,
-              };
-
-              request
-                .put(`/repos/${baseRepo}/contents/${newPath}`, data)
-                .then(() => {
-                  if (operation === "move") {
-                    delFile(currentPath, response.data.sha, false);
-                  }
-                  completedCount++;
-                  if (completedCount === selectedItems.length) {
-                    hideLoading();
-                    alert(`批量${operation === "move" ? "移动" : "复制"}完成`);
-                    refresh();
-                  }
-                });
-            });
+        function updateProgress(status, details) {
+          document.getElementById(
+            "progress-text"
+          ).textContent = `${completedCount}/${selectedItems.length} (错误: ${errorCount})`;
+          if (details) {
+            const detailElement = document.createElement("div");
+            detailElement.style.color =
+              status === "error" ? "#ff4444" : "#00ff00";
+            detailElement.textContent = details;
+            document
+              .getElementById("progress-details")
+              .appendChild(detailElement);
           }
-        });
+        }
 
-        // 清除选择状态
-        selectedFiles.clear();
-        document.querySelectorAll(".file_list li.selected").forEach((item) => {
-          item.classList.remove("selected");
-        });
-        updateSelectedCount();
+        // 串行处理文件以避免 API 限制
+        async function processFiles() {
+          for (const item of selectedItems) {
+            const fileName = item.querySelector("a").textContent;
+            const currentPath = paths.length
+              ? paths[paths.length - 1] + "/" + fileName
+              : fileName;
+
+            try {
+              if (operation === "delete") {
+                const sha = item.querySelector(".sha").textContent;
+                await request.delete(
+                  `/repos/${baseRepo}/contents/${currentPath}`,
+                  {
+                    params: {
+                      message: now() + " del " + currentPath,
+                      sha,
+                    },
+                  }
+                );
+                completedCount++;
+                updateProgress("success", `成功删除: ${fileName}`);
+              } else {
+                const newPath = targetPath + "/" + fileName;
+                const response = await getContent(currentPath, true);
+
+                const data = {
+                  message:
+                    now() + ` ${operation} ` + currentPath + " to " + newPath,
+                  content: response.data.content,
+                  sha: response.data.sha,
+                };
+
+                await request.put(
+                  `/repos/${baseRepo}/contents/${newPath}`,
+                  data
+                );
+
+                if (operation === "move") {
+                  await request.delete(
+                    `/repos/${baseRepo}/contents/${currentPath}`,
+                    {
+                      params: {
+                        message: now() + " del " + currentPath,
+                        sha: response.data.sha,
+                      },
+                    }
+                  );
+                }
+
+                completedCount++;
+                updateProgress(
+                  "success",
+                  `成功${operation === "move" ? "移动" : "复制"}: ${fileName}`
+                );
+              }
+            } catch (error) {
+              errorCount++;
+              errors.push({
+                file: fileName,
+                error: error.response?.data?.message || error.message,
+              });
+              updateProgress(
+                "error",
+                `处理失败: ${fileName} - ${
+                  error.response?.data?.message || error.message
+                }`
+              );
+            }
+          }
+
+          // 操作完成后
+          setTimeout(() => {
+            progressModal.remove();
+            if (errorCount > 0) {
+              alert(
+                `操作完成，但有 ${errorCount} 个文件处理失败，请查看详细信息。`
+              );
+            } else {
+              alert("操作成功完成！");
+            }
+            refresh();
+          }, 1000);
+
+          // 清除选择状态
+          selectedFiles.clear();
+          document
+            .querySelectorAll(".file_list li.selected")
+            .forEach((item) => {
+              item.classList.remove("selected");
+            });
+          updateSelectedCount();
+        }
+
+        processFiles();
       }
 
       // 批量删除
@@ -1182,149 +1244,10 @@
 
       function handleFileClick(event, dirPath) {
         event.preventDefault();
-        const target = event.target;
-        const listItem = target.closest("li");
-
         if (dirPath) {
-          // 如果是目录，进入目录
           getDir(dirPath, false, null);
-        } else if (
-          !event.target.classList.contains("del") &&
-          !event.target.classList.contains("checkbox")
-        ) {
-          // 如果不是点击删除按钮或复选框，则选择/取消选择文件
-          toggleFileSelection(listItem, event);
         }
       }
-
-      function toggleFileSelection(element, event) {
-        if (element.classList.contains("dir")) return; // 不允许选择目录
-
-        if (event.shiftKey && lastChecked) {
-          // Shift + 点击实现范围选择
-          const items = Array.from(document.querySelectorAll(".file_list li"));
-          const start = items.indexOf(element);
-          const end = items.indexOf(lastChecked);
-
-          items
-            .slice(Math.min(start, end), Math.max(start, end) + 1)
-            .forEach((item) => {
-              if (!item.classList.contains("dir")) {
-                item.classList.add("selected");
-              }
-            });
-        } else if (event.ctrlKey || event.metaKey) {
-          // Ctrl/Command + 点击实现多选
-          element.classList.toggle("selected");
-        } else {
-          // 普通点击，清除其他选择，只选择当前文件
-          document
-            .querySelectorAll(".file_list li.selected")
-            .forEach((item) => {
-              if (item !== element) item.classList.remove("selected");
-            });
-          element.classList.toggle("selected");
-        }
-
-        lastChecked = element;
-        updateSelectedCount();
-      }
-
-      function updateSelectedCount() {
-        const selectedCount = document.querySelectorAll(
-          ".file_list li.selected"
-        ).length;
-        const countElement = document.getElementById("selected-count");
-        countElement.textContent = selectedCount
-          ? `已选择 ${selectedCount} 个文件`
-          : "";
-      }
-
-      // Add shift-click functionality for batch selection
-      let lastChecked = null;
-      document.addEventListener("click", (e) => {
-        const fileItem = e.target.closest(".file_list li");
-        if (fileItem && e.shiftKey && lastChecked) {
-          const items = Array.from(document.querySelectorAll(".file_list li"));
-          const start = items.indexOf(fileItem);
-          const end = items.indexOf(lastChecked);
-          items
-            .slice(Math.min(start, end), Math.max(start, end) + 1)
-            .forEach((item) => item.classList.add("selected"));
-        }
-        lastChecked = fileItem;
-      });
-
-      function batchCopy() {
-        const selectedItems = document.querySelectorAll(
-          ".file_list li.selected"
-        );
-        if (!selectedItems.length) {
-          alert("请先选择要复制的文件");
-          return;
-        }
-
-        const targetPath = prompt("请输入目标路径（相对于根目录）：");
-        if (!targetPath) return;
-
-        showLoading("正在复制文件...");
-        let completedCount = 0;
-
-        selectedItems.forEach((item) => {
-          const fileName = item.querySelector("a").textContent;
-          const currentPath = paths.length
-            ? paths[paths.length - 1] + "/" + fileName
-            : fileName;
-          const newPath = targetPath + "/" + fileName;
-
-          getContent(currentPath, true).then((response) => {
-            const data = {
-              message: now() + " copy " + currentPath + " to " + newPath,
-              content: response.data.content,
-              sha: response.data.sha,
-            };
-
-            request
-              .put(`/repos/${baseRepo}/contents/${newPath}`, data)
-              .then(() => {
-                completedCount++;
-                if (completedCount === selectedItems.length) {
-                  hideLoading();
-                  alert("批量复制完成");
-                  refresh();
-                }
-              });
-          });
-        });
-      }
-
-      // 添加全选/取消全选功能
-      function addSelectAllButton() {
-        const selectAllBtn = document.createElement("span");
-        selectAllBtn.className = "back";
-        selectAllBtn.style.marginRight = "10px";
-        selectAllBtn.onclick = toggleSelectAll;
-        selectAllBtn.textContent = "全选";
-
-        const batchOperations = document.getElementById("batch-operations");
-        batchOperations.insertBefore(selectAllBtn, batchOperations.firstChild);
-      }
-
-      function toggleSelectAll() {
-        const allFiles = document.querySelectorAll(".file_list li:not(.dir)");
-        const allSelected = Array.from(allFiles).every((file) =>
-          file.classList.contains("selected")
-        );
-
-        allFiles.forEach((file) => {
-          file.classList.toggle("selected", !allSelected);
-        });
-
-        updateSelectedCount();
-      }
-
-      // 在页面加载完成后添加全选按钮
-      addSelectAllButton();
     </script>
 
     <style>
