@@ -699,33 +699,49 @@
       }
 
       function putFile(path, file) {
-        console.log("upload file:", file);
+        console.log("开始上传文件:", path, file);
         getSha(path).then((sha) => {
-          if (sha && !window.confirm("已存在改文件, 是否覆盖?")) return;
-          // if (sha && window.confirm('是否自动重命名?')) path = (new Date().getTime() + '').substr(0, 10) + '_' + path
-          showLoading();
+          if (sha && !window.confirm("已存在该文件: " + path + ", 是否覆盖?")) {
+            console.log("用户取消覆盖文件:", path);
+            return;
+          }
+          showLoading(`正在上传: ${path}`);
           const reader = new FileReader();
           reader.readAsArrayBuffer(file);
           reader.onload = async () => {
-            const arrayBuffer = reader.result;
-            const blob = new Blob([arrayBuffer], { type: file.type });
-            const content = await blob.arrayBuffer();
-            const data = {
-              message: now() + " update " + path,
-              path: path,
-              content: btoa(chunkChar(new Uint8Array(content))),
-              sha,
-            };
-            request
-              .put(`/repos/${baseRepo}/contents/${path}`, data, {
-                headers: {
-                  "Content-Type": file.type,
-                },
-              })
-              .then(() => {
-                alert("上传成功:" + path + ", 大小:" + getUnit(file.size));
-                refresh();
-              });
+            try {
+              const arrayBuffer = reader.result;
+              const blob = new Blob([arrayBuffer], { type: file.type });
+              const content = await blob.arrayBuffer();
+              const data = {
+                message: now() + " update " + path,
+                path: path,
+                content: btoa(chunkChar(new Uint8Array(content))),
+                sha,
+              };
+              console.log("准备发送文件到服务器:", path);
+              request
+                .put(`/repos/${baseRepo}/contents/${path}`, data, {
+                  headers: {
+                    "Content-Type": file.type,
+                  },
+                })
+                .then(() => {
+                  console.log("文件上传成功:", path);
+                  alert("上传成功:" + path + ", 大小:" + getUnit(file.size));
+                })
+                .catch(err => {
+                  console.error("文件上传失败:", path, err);
+                  alert("上传失败:" + path + ", 请重试");
+                });
+            } catch (err) {
+              console.error("文件处理失败:", path, err);
+              alert("文件处理失败:" + path + ", 请重试");
+            }
+          };
+          reader.onerror = (err) => {
+            console.error("文件读取失败:", path, err);
+            alert("文件读取失败:" + path + ", 请重试");
           };
         });
       }
@@ -803,13 +819,38 @@
         
         const files = e.dataTransfer.files;
         if (files.length > 0) {
-          Array.from(files).forEach(file => {
-            putFile(
-              paths.length
-                ? paths[paths.length - 1] + "/" + file.name
-                : file.name,
-              file
-            );
+          showLoading(`准备上传 ${files.length} 个文件...`);
+          console.log('开始处理拖拽的文件:', files.length, '个文件');
+          
+          let processed = 0;
+          const totalFiles = files.length;
+          
+          Array.from(files).forEach((file, index) => {
+            console.log(`处理第 ${index + 1}/${totalFiles} 个文件:`, file.name);
+            const targetPath = paths.length
+              ? paths[paths.length - 1] + "/" + file.name
+              : file.name;
+              
+            // 使用 Promise 处理文件上传
+            new Promise((resolve, reject) => {
+              putFile(targetPath, file);
+              resolve();
+            })
+            .then(() => {
+              processed++;
+              console.log(`文件 ${file.name} 处理完成，已处理 ${processed}/${totalFiles}`);
+              if (processed === totalFiles) {
+                console.log('所有文件处理完成');
+                setTimeout(() => {
+                  refresh();
+                }, 1000);
+              }
+              showLoading(`正在上传第 ${processed}/${totalFiles} 个文件...`);
+            })
+            .catch(err => {
+              console.error(`文件 ${file.name} 处理失败:`, err);
+              alert(`文件 ${file.name} 上传失败，请重试`);
+            });
           });
         }
       }
