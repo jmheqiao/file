@@ -376,26 +376,27 @@
         }
       }
       #btn-wrap {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        display: flex;
+        flex-wrap: wrap;
         gap: 8px;
         padding: 10px;
         max-width: 100%;
         margin-top: 10px;
       }
       #btn-wrap button {
-        display: flex;
+        display: inline-flex;
         justify-content: space-between;
         align-items: center;
-        padding: 8px 12px;
+        padding: 6px 12px;
         border: 1px solid #30363d;
         border-radius: 6px;
         background: #21262d;
         color: #c9d1d9;
         cursor: pointer;
         transition: all 0.2s ease;
-        max-width: 100%;
-        overflow: hidden;
+        min-width: 120px;
+        max-width: 180px;
+        flex: 0 1 auto;
       }
       #btn-wrap button:hover {
         background: #30363d;
@@ -409,44 +410,43 @@
         font-size: 12px;
         color: #8b949e;
         white-space: nowrap;
+        padding-left: 8px;
+        border-left: 1px solid #30363d;
       }
       @media (max-width: 768px) {
         #btn-wrap {
-          grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
           gap: 6px;
-          padding: 8px;
+          padding: 8px 0;
         }
         
         #btn-wrap button {
-          padding: 6px 10px;
-          font-size: 13px;
+          min-width: auto;
+          padding: 4px 8px;
+          font-size: 12px;
         }
         
         .cdn-name {
-          font-size: 13px;
+          font-size: 12px;
         }
         
         .speed-info {
           font-size: 11px;
+          padding-left: 6px;
         }
       }
       .cdn-name {
-        font-size: 14px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        font-size: 13px;
         margin-right: 8px;
+        white-space: nowrap;
       }
       h4 {
         display: flex;
-        flex-wrap: wrap;
-        align-items: flex-start;
+        flex-direction: column;
         gap: 10px;
         margin-bottom: 20px;
       }
       #rootdm {
-        flex: 1;
-        min-width: 200px;
+        width: 100%;
         max-width: 100%;
         margin: 0;
       }
@@ -528,8 +528,7 @@
         let btnEl = document.getElementById("btn-wrap");
         btnEl.innerHTML = ''; // 清空现有内容
         
-        for (let j = 0; j < urls.length; j++) {
-          const temp = urls[j];
+        urls.forEach((temp, j) => {
           const btn = document.createElement("button");
           btn.innerHTML = `
             <span class="cdn-name">${temp.name}</span>
@@ -542,29 +541,26 @@
           
           ig.onload = function () {
             const speed = new Date().getTime() - start;
-            document.getElementById(`btn${j}`).innerHTML = speed + "ms";
-            // 如果速度小于1000ms，添加一个视觉标记
-            if (speed < 1000) {
-              document.getElementById(`btn${j}`).style.color = '#7ee787';
-            }
+            const speedEl = document.getElementById(`btn${j}`);
+            speedEl.innerHTML = speed + "ms";
+            speedEl.style.color = speed < 1000 ? '#7ee787' : '#8b949e';
           };
           
           ig.onerror = function () {
-            document.getElementById(`btn${j}`).innerHTML = "无法访问";
-            document.getElementById(`btn${j}`).style.color = '#f85149';
+            const speedEl = document.getElementById(`btn${j}`);
+            speedEl.innerHTML = "失败";
+            speedEl.style.color = '#f85149';
           };
 
           btn.onclick = function () {
-            // 移除其他按钮的active类
             btnEl.querySelectorAll('button').forEach(b => b.classList.remove('active'));
-            // 添加当前按钮的active类
             btn.classList.add('active');
             document.getElementById("rootdm").value = temp.url;
             initFileList();
           };
           
-          btnEl.append(btn);
-        }
+          btnEl.appendChild(btn);
+        });
       }
       initBtn();
 
