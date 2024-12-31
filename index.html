@@ -320,6 +320,21 @@
         z-index: 9;
         font-size: 20px;
       }
+      .drag-hint {
+        background: rgba(255, 144, 0, 0.1);
+        padding: 8px;
+        border-radius: 4px;
+        margin-bottom: 15px;
+        border: 1px dashed #ff9000;
+        color: #ff9000;
+        text-align: center;
+        animation: pulse 2s infinite;
+      }
+      @keyframes pulse {
+        0% { opacity: 0.6; }
+        50% { opacity: 1; }
+        100% { opacity: 0.6; }
+      }
       #drop-zone {
         transition: all 0.3s ease;
         position: relative;
@@ -337,6 +352,24 @@
         color: #ff9000;
         pointer-events: none;
       }
+      .empty-folder-hint {
+        text-align: center;
+        padding: 40px 20px;
+        border: 2px dashed #ff9000;
+        border-radius: 8px;
+        margin: 20px 0;
+        background: rgba(255, 144, 0, 0.05);
+        transition: all 0.3s ease;
+      }
+      .empty-folder-hint:hover {
+        background: rgba(255, 144, 0, 0.1);
+      }
+      .empty-folder-hint i {
+        font-size: 40px;
+        color: #ff9000;
+        margin-bottom: 15px;
+        display: block;
+      }
       @media screen and (max-width: 700px) {
         #drop-zone.dragover:after {
           font-size: 16px;
@@ -346,6 +379,9 @@
   </head>
   <body>
     <div id="drop-zone" style="min-height: calc(100vh - 200px); position: relative;" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+    <div class="drag-hint">
+      💡 支持拖拽上传：直接将文件拖放到页面任意位置即可上传
+    </div>
     <p style="margin: 0">
       版本号: 20250101-1
       <span class="tip">测试延迟请在根目录上传<b>init.jpg</b>(50kb以内)</span>
@@ -466,7 +502,7 @@
             item.name.includes(searchVal.trim())
           );
         }
-        if (window.fileList.length)
+        if (window.fileList.length) {
           document.getElementById("file_list").innerHTML = tempList
             .map((item) => {
               return `<li class="file ${item.ftype}">
@@ -481,6 +517,17 @@
           </li>`;
             })
             .join("");
+        } else {
+          document.getElementById("file_list").innerHTML = `
+            <div class="empty-folder-hint">
+              <i>📁</i>
+              <p>当前文件夹为空</p>
+              <p style="margin-top: 10px; font-size: 14px; color: #999;">
+                拖放文件到这里上传，或点击顶部的"上传文件"按钮
+              </p>
+            </div>
+          `;
+        }
 
         document.getElementById("repo").innerHTML =
           baseRepo + "/" + (paths.length ? paths[paths.length - 1] : "");
