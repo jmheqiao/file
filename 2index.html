@@ -377,21 +377,25 @@
       }
       #btn-wrap {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-        gap: 10px;
-        padding: 15px;
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 8px;
+        padding: 10px;
+        max-width: 100%;
+        margin-top: 10px;
       }
       #btn-wrap button {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 10px 15px;
+        padding: 8px 12px;
         border: 1px solid #30363d;
         border-radius: 6px;
         background: #21262d;
         color: #c9d1d9;
         cursor: pointer;
         transition: all 0.2s ease;
+        max-width: 100%;
+        overflow: hidden;
       }
       #btn-wrap button:hover {
         background: #30363d;
@@ -404,13 +408,51 @@
       .speed-info {
         font-size: 12px;
         color: #8b949e;
+        white-space: nowrap;
       }
       @media (max-width: 768px) {
         #btn-wrap {
-          grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-          gap: 8px;
-          padding: 10px;
+          grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+          gap: 6px;
+          padding: 8px;
         }
+        
+        #btn-wrap button {
+          padding: 6px 10px;
+          font-size: 13px;
+        }
+        
+        .cdn-name {
+          font-size: 13px;
+        }
+        
+        .speed-info {
+          font-size: 11px;
+        }
+      }
+      .cdn-name {
+        font-size: 14px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-right: 8px;
+      }
+      h4 {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+      #rootdm {
+        flex: 1;
+        min-width: 200px;
+        max-width: 100%;
+        margin: 0;
+      }
+      #btn-wrap {
+        flex: 2;
+        min-width: 300px;
       }
     </style>
   </head>
