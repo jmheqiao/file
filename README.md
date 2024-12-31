@@ -70,8 +70,11 @@
 
 1. 首次使用需要设置GitHub仓库和Token
 2. Token需要有仓库的读写权限
-3. 建议在根目录放置一个小于50KB的init.jpg文件用于CDN测速
+3. init.jpg 文件是必需文件，不可删除，用于CDN测速功能（建议大小<50KB）
 4. index.html文件受保护，不可删除
+5. 本项目有两个版本：
+   - [bbylw/file](https://github.com/bbylw/file): 默认版本，使用固定加速源，稳定可靠
+   - [bbylw/fileplus](https://github.com/bbylw/fileplus): 多加速源版本，可根据需求自由增减加速源
 
 ## 更新日志
 
